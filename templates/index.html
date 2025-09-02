@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>Dashboard Video</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 20px; background:#0b0b0b; color:#eee; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px; }
+    .card { background:#151515; border:1px solid #2a2a2a; border-radius:16px; padding:14px; }
+    .thumb { width:100%; height:240px; object-fit:cover; background:#000; border-radius:12px; border:1px solid #333; }
+    .row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+    .btn { display:inline-block; padding:10px 14px; border-radius:10px; background:#2d6cdf; color:#fff; text-decoration:none; }
+    .btn:hover { background:#2458b6; }
+    .label { color:#aaa; font-size:14px; }
+    /* tambahan untuk judul agar rata tengah */
+    .header { text-align:center; margin-bottom:20px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+   <img src="{{ url_for('static', filename='eagle-eye-logo.png') }}" 
+     alt="eagle-eyes" 
+     style="width:80px; height:auto;">
+    <h2 class="text-xl font-bold">Deteksi Pelanggaran Berkendara Real-Time</h2>
+    <p>Jam: <span id="timeIndicator" class="font-bold">00:00:00</span> WIB</p>
+  </div>
+
+  <div class="grid">
+      {% for idx, filename in items %}
+      {% set title = video_location[idx] if idx < video_location|length else filename %}
+      <div class="card">
+        <a href="{{ url_for('detail', idx=idx) }}" title="Klik untuk detail {{ title }}">
+          <img class="thumb" src="{{ url_for('video_feed', idx=idx) }}" alt="preview {{ title }}" />
+        </a>
+       <div class="row">
+  <div style="width:100%; text-align:center;">
+    <div>{{ title }}</div>
+  </div>
+</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    // Script untuk update jam real-time
+    function updateClock() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('id-ID', { hour12: false });
+      document.getElementById("timeIndicator").textContent = timeString;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
+</body>
+</html>

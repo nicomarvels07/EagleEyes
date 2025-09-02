@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Detail — {{ filename }}</title>
+  <style>
+    :root { --blue:#2b5fad; --header:#1f4e96; --border:#d1d5db; --muted:#6b7280;
+            --ok:#16a34a; --bad:#dc2626; --bg:#ffffff; --text:#111827; }
+    * { box-sizing:border-box }
+    body { margin:0; padding:20px; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+           color:var(--text); background:var(--bg); }
+    .container { max-width:1180px; margin:0 auto; display:grid; gap:16px; }
+    .topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    a.btn, button.btn { appearance:none; border:1px solid var(--border); background:#fff; color:var(--text);
+      padding:8px 12px; border-radius:10px; text-decoration:none; cursor:pointer; }
+    a.btn:hover, button.btn:hover { background:#f3f4f6; }
+    .card { border:1px solid var(--border); border-radius:14px; padding:16px; background:#fff; }
+    .title { margin:0 0 6px 0; font-size:20px; font-weight:700; }
+    .muted { color:var(--muted); font-size:14px; }
+    img.stream { width:100%; max-width:1024px; height:auto; display:block; border-radius:12px;
+                 border:1px solid var(--border); background:#000; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px 12px; border:1px solid #c9d2e3; }
+    thead th { background:var(--blue); color:#fff; font-weight:700; }
+    tbody tr:nth-child(even){ background:#f8fafc; }
+    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    .ok { color:var(--ok); font-weight:600; }
+    .bad { color:var(--bad); font-weight:700; }
+    .chip { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px;
+            border:1px solid var(--border); margin-right:6px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <a class="btn" href="{{ url_for('index') }}">← Kembali</a>
+      <div class="row">
+        <span class="muted">File:</span><strong class="mono">{{ filename }}</strong>
+      </div>
+      {% if location %}
+      <div class="row">
+        <span class="muted">Lokasi:</span><strong>{{ location }}</strong>
+      </div>
+      {% endif %}
+      <button id="toggleBtn" class="btn" type="button">⏸️ Jeda Stream</button>
+      <button id="refreshBtn" class="btn" type="button">🔄 Muat Ulang</button>
+    </div>
+
+    <!-- Gambar/Stream -->
+    <div class="card">
+      <h2 class="title">Tangkapan Kamera</h2>
+      <img id="streamImg" class="stream" src="{{ url_for('detail_feed', idx=idx) }}" alt="Stream analitik (MJPEG)" />
+      <div id="streamErr" class="muted bad hidden" style="margin-top:6px;">Gagal memuat stream.</div>
+    </div>
+
+    <!-- Tabel Ringkasan -->
+    <div class="card">
+      <h2 class="title" style="margin-bottom:8px;">Ringkasan Deteksi</h2>
+      <table id="sumTable">
+        <thead>
+          <tr>
+            <th style="width:18%;">Vehicle</th>
+            <th style="width:26%;">Plat Nomor</th>
+            <th>Condition</th>
+            <th style="width:16%;">Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- baris akan diisi via JS -->
+        </tbody>
+      </table>
+      <div id="emptyHint" class="muted" style="margin-top:8px;">Menunggu data…</div>
+    </div>
+  </div>
+
+  <script>
+    // --- Stream controls ---
+    (function () {
+      const img = document.getElementById('streamImg');
+      const err = document.getElementById('streamErr');
+      const btnToggle = document.getElementById('toggleBtn');
+      const btnRefresh = document.getElementById('refreshBtn');
+      let playing = true;
+      const base = img.getAttribute('src');
+
+      btnToggle.addEventListener('click', () => {
+        if (playing) {
+          img.src = '';
+          btnToggle.textContent = '▶️ Lanjutkan Stream';
+        } else {
+          img.src = base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+          btnToggle.textContent = '⏸️ Jeda Stream';
+        }
+        playing = !playing;
+      });
+      btnRefresh.addEventListener('click', () => {
+        img.src = '';
+        setTimeout(() => {
+          img.src = base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+        }, 50);
+      });
+      img.addEventListener('error', () => err.classList.remove('hidden'));
+      img.addEventListener('load',  () => err.classList.add('hidden'));
+    })();
+
+    // --- Ringkasan tabel dari /detail_json/<idx> ---
+    (function () {
+      const tbody = document.querySelector('#sumTable tbody');
+      const emptyHint = document.getElementById('emptyHint');
+      const idx = {{ idx|int }};
+
+      const HUMAN = {
+        // mobil
+        driver_buckled: 'Driver Buckled',
+        driver_unbuckled: 'Driver Unbuckled',
+        passanger_buckled: 'Passenger Buckled',
+        passanger_unbuckled: 'Passenger Unbuckled',
+        driver_unknown: 'Driver Unknown',
+        passanger_unknown: 'Passenger Unknown',
+        // motor
+        motor_1_nohelmet: '1 No Helmet',
+        motor_2_nohelmet: '2 No Helmet',
+        motor_more_2: 'More than 2 riders',
+        motor_1_helmet: '1 Helmet',
+        motor_2_helmet: '2 Helmet'
+      };
+
+      function vehicleName(t){
+        return (t === 'car') ? 'Mobil' : (t === 'motor' ? 'Motor' : t);
+      }
+      function span(text, cls){ const s=document.createElement('span'); s.textContent=text; if(cls) s.className=cls; return s; }
+
+      async function loadData(){
+        try{
+          const res = await fetch(`/detail_json/${idx}`, { cache: 'no-store' });
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const items = await res.json();
+
+          tbody.innerHTML = '';
+          if(!items || !items.length){ emptyHint.textContent = 'Belum ada objek terdeteksi.'; return; }
+          emptyHint.textContent = '';
+
+          for(const it of items){
+            const tr = document.createElement('tr');
+
+            // vehicle
+            const tdV = document.createElement('td');
+            tdV.textContent = vehicleName(it.type || '-');
+
+            // plate
+            const tdP = document.createElement('td');
+            tdP.textContent = it.plate || '-';
+            tdP.className = 'mono';
+
+            // condition
+            const tdC = document.createElement('td');
+            const conds = Array.isArray(it.violations) ? it.violations : [];
+            if(conds.length){
+              conds.forEach((c, i) => {
+                const nice = HUMAN[c] || c;
+                const isBad = /unbuckled|nohelmet|more/i.test(c);
+                tdC.appendChild(span(nice, isBad ? 'bad' : 'ok'));
+                if(i < conds.length-1) tdC.append(', ');
+              });
+            }else{
+              // jika tidak ada violation, tampilkan "OK" / atau teks lain bila tersedia
+              tdC.appendChild(span(it.condition || 'OK', 'ok'));
+            }
+
+            // note
+            const tdN = document.createElement('td');
+            const s = (it.status || '').toUpperCase();
+            if(s === 'VIOLATION'){
+              tdN.appendChild(span('Violation', 'bad'));
+            }else if(s === 'UNKNOWN'){
+              tdN.appendChild(span('Unknown', 'bad'));
+            }else{
+              tdN.appendChild(span('-', ''));
+            }
+
+            tr.appendChild(tdV);
+            tr.appendChild(tdP);
+            tr.appendChild(tdC);
+            tr.appendChild(tdN);
+            tbody.appendChild(tr);
+          }
+        }catch(e){
+          emptyHint.textContent = 'Gagal memuat ringkasan. Pastikan endpoint /detail_json ada.';
+        }
+      }
+
+      loadData();
+      setInterval(loadData, 2000); // polling ringan
+    })();
+  </script>
+</body>
+</html>

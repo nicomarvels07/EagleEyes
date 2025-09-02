@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Deteksi - {{ title }}</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 0; background-color: #0b0b0b; color: #eee; }
+        .header { background-color: #151515; padding: 1rem 2rem; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; }
+        .header a { text-decoration: none; color: #2d6cdf; font-weight: 500; }
+        .header h1 { margin: 0 0 0 1.5rem; font-size: 1.5rem; font-weight: 600; }
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background-color: #151515; border-radius: 1rem; padding: 1.5rem; border: 1px solid #2a2a2a; margin-bottom: 2rem; }
+        .card h3 { margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 0.75rem; color: #eee; }
+        .video-wrapper img { width: 100%; height: auto; border-radius: 0.75rem; background-color: #000; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.85rem 1rem; border-bottom: 1px solid #333; text-align: left; }
+        th { background-color: #1f1f1f; font-weight: 600; }
+        tr:hover { background-color: #252525; }
+        .note-pelanggaran { color: #e53e3e; font-weight: bold; }
+        .note-aman { color: #48bb78; font-weight: bold; }
+        .note-unknown { color: #ecc94b; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/">&laquo; Kembali ke Dashboard</a>
+        <h1>{{ title }}</h1>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h3>Tangkapan Kamera</h3>
+            <div class="video-wrapper">
+                <img src="{{ url_for('detail_feed', idx=idx) }}" alt="Live Stream Deteksi">
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Ringkasan Deteksi</h3>
+            <table id="detection-table">
+                <thead>
+                    <tr>
+                        <th>Kendaraan</th>
+                        <th>Plat Nomor</th>
+                        <th>Kondisi</th>
+                        <th>Catatan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const videoIndex = {{ idx }};
+
+        async function fetchDetectionData() {
+            try {
+                const response = await fetch(`/detection_data/${videoIndex}`);
+                if (!response.ok) throw new Error('Gagal mengambil data dari server');
+                const data = await response.json();
+                updateTable(data);
+            } catch (error) {
+                console.error("Error:", error);
+                const tableBody = document.querySelector("#detection-table tbody");
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Gagal memuat ringkasan.</td></tr>`;
+            }
+        }
+
+        function updateTable(data) {
+            const tableBody = document.querySelector("#detection-table tbody");
+            tableBody.innerHTML = ""; 
+
+            if (!data || data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Tidak ada kendaraan terdeteksi.</td></tr>`;
+                return;
+            }
+
+            data.forEach(item => {
+                let noteClass = '';
+                if (item.note === 'PELANGGARAN') noteClass = 'note-pelanggaran';
+                else if (item.note === 'AMAN') noteClass = 'note-aman';
+                else if (item.note === 'TIDAK DIKETAHUI') noteClass = 'note-unknown';
+
+                const row = tableBody.insertRow();
+                row.innerHTML = `
+                    <td>${item.vehicle}</td>
+                    <td>${item.plate}</td>
+                    <td>${item.condition}</td>
+                    <td class="${noteClass}">${item.note}</td>
+                `;
+            });
+        }
+
+        setInterval(fetchDetectionData, 2500);
+        document.addEventListener("DOMContentLoaded", fetchDetectionData);
+    </script>
+</body>
+</html>
